@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我的课表</title>
+<style>
+  :root{
+    --bg:#eef2f7;
+    --bg2:#f2f6fd;
+    --bg3:#dbe5f6;
+    --glow-a:rgba(79,140,255,.15);
+    --glow-b:rgba(146,84,222,.09);
+    --panel:#ffffff;
+    --text:#1f2d3d;
+    --muted:#7c8aa0;
+    --border:#e2e8f0;
+    --line:#ccd7e6;
+    --header-bg:#f6f9fd;
+    --cell:#ffffff;
+    --accent:#4f8cff;
+    --danger:#f56c6c;
+    --shadow:0 4px 18px rgba(31,45,61,.08);
+  }
+  [data-theme="dark"]{
+    --bg:#12141b;
+    --bg2:#1a2130;
+    --bg3:#0a0c12;
+    --glow-a:rgba(91,155,255,.17);
+    --glow-b:rgba(146,84,222,.13);
+    --panel:#1b1e27;
+    --text:#e7eaf0;
+    --muted:#8b93a5;
+    --border:#2a2e3b;
+    --line:#333d52;
+    --header-bg:#20242f;
+    --cell:#1b1e27;
+    --accent:#5b9bff;
+    --danger:#ff6b6b;
+    --shadow:0 4px 18px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background-color:var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 0%, var(--glow-a), transparent 42%),
+      radial-gradient(circle at 88% 100%, var(--glow-b), transparent 42%),
+      linear-gradient(160deg, var(--bg2) 0%, var(--bg3) 100%);
+    background-attachment:fixed;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    transition:background .2s,color .2s;
+  }
+  .app{max-width:1300px;margin:0 auto;padding:18px 16px 60px;}
+
+  .toolbar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:12px 14px;box-shadow:var(--shadow);margin-bottom:14px;
+  }
+  .brand{font-size:17px;font-weight:800;letter-spacing:.5px;margin-right:auto;display:flex;align-items:center;gap:7px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(79,140,255,.15);}
+  .tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+
+  button,select,input,textarea{font-family:inherit;font-size:13px;color:var(--text);}
+  .btn{
+    display:inline-flex;align-items:center;gap:5px;
+    background:var(--panel);border:1px solid var(--border);border-radius:9px;
+    padding:7px 12px;cursor:pointer;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn.primary:hover{color:#fff;filter:brightness(1.06);}
+  .btn.icon{padding:7px 10px;}
+  .btn.danger{color:var(--danger);border-color:var(--danger);}
+  .btn.danger:hover{background:var(--danger);color:#fff;}
+  .week-ctrl{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:3px 4px 3px 10px;}
+  .week-ctrl label{font-size:12px;color:var(--muted);}
+  .week-ctrl select{border:none;background:transparent;padding:5px 4px;outline:none;font-weight:600;cursor:pointer;}
+
+  .dropdown{position:relative;display:inline-block;}
+  .dropdown-menu{
+    position:absolute;top:calc(100% + 6px);right:0;z-index:60;min-width:142px;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    box-shadow:var(--shadow);padding:6px;display:none;flex-direction:column;gap:2px;
+  }
+  .dropdown.open .dropdown-menu{display:flex;}
+  .dropdown-menu button{
+    background:transparent;border:none;text-align:left;padding:9px 12px;
+    border-radius:7px;cursor:pointer;width:100%;transition:.12s;
+  }
+  .dropdown-menu button:hover{background:var(--bg);color:var(--accent);}
+
+  .board-wrap{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:10px;box-shadow:var(--shadow);overflow-x:auto;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:74px repeat(7,minmax(104px,1fr));
+    min-width:880px;
+    position:relative;
+  }
+  .corner,.day-head,.slot-label,.cell{box-shadow:inset -1px -1px 0 var(--line);}
+  .corner{background:var(--header-bg);border-radius:10px 0 0 0;}
+  .day-head{
+    background:var(--header-bg);display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13.5px;padding:11px 0;
+  }
+  .day-head.weekend{color:var(--accent);}
+  .slot-label{
+    background:var(--header-bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;padding:6px 2px;
+  }
+  .slot-label .no{font-weight:700;font-size:13px;}
+  .slot-label .tm{font-size:9.5px;color:var(--muted);line-height:1.15;text-align:center;}
+  .cell{background:var(--cell);cursor:pointer;transition:background .12s;position:relative;}
+  .cell:hover{background:rgba(79,140,255,.07);}
+  .cell.drag-over{background:rgba(79,140,255,.18);box-shadow:inset 0 0 0 2px var(--accent);}
+
+  .course{
+    margin:3px;border-radius:10px;padding:5px 8px;color:#fff;overflow:hidden;
+    cursor:grab;z-index:2;display:flex;flex-direction:column;gap:1px;
+    box-shadow:0 2px 8px rgba(31,45,61,.18);border:1px solid rgba(255,255,255,.18);
+    transition:transform .12s,box-shadow .12s;
+  }
+  .course:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(31,45,61,.28);z-index:5;}
+  .course:active{cursor:grabbing;}
+  .course .c-name{font-weight:700;font-size:12.5px;line-height:1.25;word-break:break-all;}
+  .course .c-meta{font-size:10.5px;line-height:1.25;opacity:.92;word-break:break-all;}
+  .course .c-note{
+    font-size:10px;line-height:1.3;opacity:.95;margin-top:2px;padding-top:2px;
+    border-top:1px dashed rgba(255,255,255,.35);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;word-break:break-all;
+  }
+  .course .c-note.clamped{cursor:zoom-in;}
+  .course.dragging{opacity:.4;}
+  .board.dragging .course{pointer-events:none;}
+
+  .empty-tip{text-align:center;color:var(--muted);font-size:13px;padding:26px 10px;}
+
+  .note-pop{
+    position:fixed;z-index:120;max-width:320px;display:none;
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    box-shadow:0 14px 44px rgba(0,0,0,.32);padding:12px 14px;
+  }
+  .note-pop.show{display:block;}
+  .note-pop .np-title{font-weight:700;font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:7px;}
+  .note-pop .np-title .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px;}
+  .note-pop .np-body{font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-all;}
+
+  .tip-box{
+    position:fixed;right:20px;bottom:20px;z-index:90;
+    width:290px;max-width:calc(100vw - 32px);
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    box-shadow:0 12px 36px rgba(31,45,61,.22);padding:12px 14px;
+  }
+  .tip-box.hidden{display:none;}
+  .tip-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .tip-title{font-weight:700;font-size:13px;}
+  .tip-toggle{margin-left:auto;border:none;background:transparent;cursor:pointer;font-size:17px;line-height:1;color:var(--muted);padding:0 2px;}
+  .tip-toggle:hover{color:var(--accent);}
+  .tip-body{font-size:12px;line-height:1.6;color:var(--muted);}
+  .tip-fab{
+    position:fixed;right:20px;bottom:20px;z-index:90;display:none;
+    width:46px;height:46px;border-radius:50%;border:none;cursor:pointer;
+    background:var(--accent);color:#fff;font-size:20px;
+    align-items:center;justify-content:center;
+    box-shadow:0 6px 18px rgba(79,140,255,.45);
+  }
+  .tip-fab.show{display:flex;}
+  .tip-fab:hover{filter:brightness(1.06);}
+
+  .modal-mask{
+    position:fixed;inset:0;background:rgba(15,20,30,.5);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;padding:16px;z-index:100;
+  }
+  .modal-mask.show{display:flex;}
+  .modal{
+    width:100%;max-width:460px;max-height:92vh;overflow-y:auto;
+    background:var(--panel);border-radius:16px;border:1px solid var(--border);
+    box-shadow:0 20px 60px rgba(0,0,0,.35);padding:20px;
+  }
+  .modal.wide{max-width:520px;}
+  .modal h3{font-size:16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field.full{grid-column:1 / -1;}
+  .field label{font-size:12px;color:var(--muted);font-weight:600;}
+  .field input[type="text"],.field input[type="number"],.field select,.field textarea{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;
+    background:var(--bg);outline:none;transition:.15s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:var(--panel);}
+  .field textarea{resize:vertical;min-height:56px;}
+  .req{color:var(--danger);}
+
+  .palette{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .swatch{
+    width:26px;height:26px;border-radius:8px;cursor:pointer;border:2px solid transparent;
+    transition:transform .12s;position:relative;
+  }
+  .swatch:hover{transform:scale(1.12);}
+  .swatch.active{border-color:var(--text);box-shadow:0 0 0 2px var(--panel),0 0 0 4px currentColor;}
+  .swatch.custom{position:relative;overflow:hidden;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);}
+  .swatch.custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .modal-actions .grow{margin-right:auto;}
+
+  .slot-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;padding-right:4px;}
+  .slot-row{
+    display:flex;align-items:center;gap:8px;background:var(--bg);
+    border:1px solid var(--border);border-radius:10px;padding:8px 10px;
+  }
+  .slot-row .idx{
+    width:26px;height:26px;flex:0 0 26px;border-radius:8px;background:var(--accent);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;
+  }
+  .slot-row input[type="time"]{
+    flex:1;min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:8px;
+    background:var(--panel);outline:none;font-variant-numeric:tabular-nums;
+  }
+  .slot-row input[type="time"]:focus{border-color:var(--accent);}
+  .slot-row .sep{color:var(--muted);}
+  .slot-row .del{padding:6px 9px;font-size:12px;}
+  .slot-add{margin-top:10px;width:100%;justify-content:center;border-style:dashed;}
+  .slot-reset{margin-top:8px;width:100%;justify-content:center;}
+  .slot-hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
+
+  @media (max-width:640px){
+    .app{padding:12px 8px 40px;}
+    .brand{font-size:15px;width:100%;margin-bottom:4px;}
+    .tools{gap:6px;}
+    .btn{padding:6px 9px;font-size:12px;}
+    .board{min-width:760px;grid-template-columns:66px repeat(7,minmax(96px,1fr));}
+    .slot-label .tm{font-size:8.5px;}
+    .form-grid{grid-template-columns:1fr;}
+  }
+
+  @media print{
+    body{background:#fff;}
+    .toolbar,.modal-mask,.note-pop,.tip-box,.tip-fab{display:none !important;}
+    .app{max-width:none;padding:0;}
+    .board-wrap{border:none;box-shadow:none;padding:0;overflow:visible;}
+    .board{min-width:0;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <div class="brand"><span class="dot"></span>我的课表</div>
+    <div class="tools">
+      <div class="week-ctrl">
+        <label>周次</label>
+        <button class="btn icon" id="prevWeek" title="上一周">◀</button>
+        <select id="weekSelect"></select>
+        <button class="btn icon" id="nextWeek" title="下一周">▶</button>
+      </div>
+      <button class="btn primary" id="addBtn">＋ 新增课程</button>
+      <button class="btn" id="slotBtn">⏱ 节次设置</button>
+      <div class="dropdown" id="dataDropdown">
+        <button class="btn" id="dataBtn">☰ 数据 ▾</button>
+        <div class="dropdown-menu">
+          <button id="exportBtn">导出 JSON</button>
+          <button id="importBtn">导入 JSON</button>
+        </div>
+      </div>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button class="btn" id="imageBtn">导出图片</button>
+      <button class="btn" id="printBtn">打印</button>
+      <button class="btn icon" id="themeBtn" title="切换主题">🌙</button>
+    </div>
+  </div>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3 id="modalTitle">新增课程</h3>
+    <div class="form-grid">
+      <div class="field full">
+        <label>课程名称 <span class="req">*</span></label>
+        <input type="text" id="cName" maxlength="30" placeholder="例如：高等数学">
+      </div>
+      <div class="field">
+        <label>授课教师</label>
+        <input type="text" id="cTeacher" maxlength="20" placeholder="选填">
+      </div>
+      <div class="field">
+        <label>上课地点</label>
+        <input type="text" id="cRoom" maxlength="20" placeholder="例如：A101">
+      </div>
+      <div class="field">
+        <label>星期</label>
+        <select id="cDay"></select>
+      </div>
+      <div class="field">
+        <label>开始节次</label>
+        <select id="cStart"></select>
+      </div>
+      <div class="field">
+        <label>持续节数（连堂）</label>
+        <select id="cLen"></select>
+      </div>
+      <div class="field">
+        <label>起始周</label>
+        <input type="number" id="cStartWeek" min="1" value="1">
+      </div>
+      <div class="field">
+        <label>结束周</label>
+        <input type="number" id="cEndWeek" min="1" value="20">
+      </div>
+      <div class="field full">
+        <label>课程颜色</label>
+        <div class="palette" id="palette"></div>
+      </div>
+      <div class="field full">
+        <label>备注</label>
+        <textarea id="cNote" maxlength="120" placeholder="选填，例如：实验课、需带教材"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger grow" id="deleteBtn" style="display:none;">删除课程</button>
+      <button class="btn" id="cancelBtn">取消</button>
+      <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="slotMask">
+  <div class="modal wide">
+    <h3>⏱ 节次与时间设置</h3>
+    <div class="slot-list" id="slotList"></div>
+    <button class="btn slot-add" id="addSlotBtn">＋ 添加一节</button>
+    <button class="btn slot-reset" id="resetSlotBtn">↺ 恢复默认节次</button>
+    <div class="slot-hint">可修改每节的起止时间；删除小节时，使用该小节的课程会自动缩短或一并移除。默认节次按学校时间划分（13 节）。</div>
+    <div class="modal-actions">
+      <button class="btn" id="slotCancelBtn">取消</button>
+      <button class="btn primary" id="slotSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="note-pop" id="notePop">
+  <div class="np-title"><span class="sw" id="npSw"></span><span id="npTitle"></span></div>
+  <div class="np-body" id="npBody"></div>
+</div>
+
+<div class="tip-box" id="tipBox">
+  <div class="tip-head">
+    <span class="tip-title">💡 小提示</span>
+    <button class="tip-toggle" id="tipToggle" title="收起">－</button>
+  </div>
+  <div class="tip-body">课表前面的小节个数可能要用户自己通过上方的节次设置来调整</div>
+</div>
+<button class="tip-fab" id="tipFab" title="展开提示">💡</button>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAYS = 7;
+  var DEFAULT_WEEKS = 20;
+  var STORE_KEY = "my-schedule-v2";
+  var OLD_KEY = "my-schedule-v1";
+  var DAY_NAMES = ["周一","周二","周三","周四","周五","周六","周日"];
+  var COLORS = ["#4f8cff","#f56c6c","#67c23a","#e6a23c","#9254de","#13c2c2","#eb2f96","#597ef7","#fa8c16","#52c41a"];
+  var DEFAULT_SLOTS = [
+    ["08:00","08:40"],["08:45","09:25"],["09:45","10:25"],["10:30","11:10"],["11:15","11:55"],
+    ["13:00","13:40"],["13:45","14:25"],["14:45","15:25"],["15:30","16:10"],["16:15","16:55"],
+    ["18:00","18:40"],["18:45","19:25"],["19:30","20:10"]
+  ];
+
+  var state = {
+    courses: [],
+    slots: [],
+    currentWeek: 1,
+    totalWeeks: DEFAULT_WEEKS,
+    theme: "light"
+  };
+  var editingId = null;
+  var dragId = null;
+  var pickedColor = COLORS[0];
+  var tempSlots = [];
+  var deletedSlotIdx = [];
+  var slotOldLen = 0;
+
+  var board = document.getElementById("board");
+  var modalMask = document.getElementById("modalMask");
+  var slotMask = document.getElementById("slotMask");
+  var paletteEl = document.getElementById("palette");
+  var notePop = document.getElementById("notePop");
+
+  function el(tag, cls, txt){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt !== undefined && txt !== null) e.textContent = txt;
+    return e;
+  }
+  function uid(){
+    return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+  function defaultSlots(){
+    return DEFAULT_SLOTS.map(function(t){ return { start: t[0], end: t[1] }; });
+  }
+  function timeText(s){ return s.start + "-" + s.end; }
+  function toMin(t){
+    var p = String(t).split(":");
+    var h = parseInt(p[0],10), m = parseInt(p[1],10);
+    if (isNaN(h) || isNaN(m)) return 0;
+    return h*60 + m;
+  }
+  function toHHMM(m){
+    m = ((m % 1440) + 1440) % 1440;
+    var h = Math.floor(m/60), mm = m % 60;
+    return (h<10?"0":"") + h + ":" + (mm<10?"0":"") + mm;
+  }
+  function isTime(t){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t)); }
+  function normalizeSlot(s){
+    if (!s || typeof s !== "object") return null;
+    if (!isTime(s.start) || !isTime(s.end)) return null;
+    return { start: s.start, end: s.end };
+  }
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) raw = localStorage.getItem(OLD_KEY);
+      if (!raw){ state.slots = defaultSlots(); return; }
+      var data = JSON.parse(raw);
+      if (data && Array.isArray(data.slots) && data.slots.length){
+        var slots = data.slots.map(normalizeSlot).filter(Boolean);
+        state.slots = slots.length ? slots : defaultSlots();
+      } else {
+        state.slots = defaultSlots();
+      }
+      if (data && Array.isArray(data.courses)){
+        state.courses = data.courses.map(normalizeCourse).filter(Boolean);
+      }
+      if (data){
+        state.totalWeeks = clamp(parseInt(data.totalWeeks,10) || DEFAULT_WEEKS, 1, 60);
+        var cw = parseInt(data.currentWeek,10);
+        state.currentWeek = (cw === 0) ? 0 : clamp(cw || 1, 1, state.totalWeeks);
+        if (data.theme === "dark") state.theme = "dark";
+      }
+    }catch(e){ console.warn("读取本地数据失败", e); state.slots = defaultSlots(); }
+    if (!state.slots.length) state.slots = defaultSlots();
+  }
+  function normalizeCourse(c){
+    if (!c || typeof c !== "object") return null;
+    var max = state.slots.length;
+    var start = clamp(parseInt(c.startSlot,10) || 1, 1, max);
+    var end = clamp(parseInt(c.endSlot,10) || start, start, max);
+    var sw = clamp(parseInt(c.startWeek,10) || 1, 1, 60);
+    var ew = clamp(parseInt(c.endWeek,10) || sw, sw, 60);
+    return {
+      id: c.id || uid(),
+      name: String(c.name || "未命名课程").slice(0,30),
+      teacher: String(c.teacher || "").slice(0,20),
+      room: String(c.room || "").slice(0,20),
+      day: clamp(parseInt(c.day,10) || 1, 1, DAYS),
+      startSlot: start,
+      endSlot: end,
+      startWeek: sw,
+      endWeek: ew,
+      color: /^#[0-9a-fA-F]{6}$/.test(c.color) ? c.color : COLORS[0],
+      note: String(c.note || "").slice(0,120)
+    };
+  }
+  function saveState(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch(e){ console.warn("保存失败", e); }
+  }
+
+  function applyTheme(){
+    document.documentElement.setAttribute("data-theme", state.theme);
+    document.getElementById("themeBtn").textContent = state.theme === "dark" ? "🌙" : "☀️";
+  }
+
+  function visibleCourses(){
+    if (state.currentWeek === 0) return state.courses.slice();
+    return state.courses.filter(function(c){
+      return state.currentWeek >= c.startWeek && state.currentWeek <= c.endWeek;
+    });
+  }
+
+  function renderWeekSelect(){
+    var sel = document.getElementById("weekSelect");
+    sel.innerHTML = "";
+    var all = el("option");
+    all.value = "0";
+    all.textContent = "全部";
+    if (state.currentWeek === 0) all.selected = true;
+    sel.appendChild(all);
+    for (var w = 1; w <= state.totalWeeks; w++){
+      var o = el("option");
+      o.value = String(w);
+      o.textContent = "第 " + w + " 周";
+      if (w === state.currentWeek) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  function makeCorner(){
+    var c = el("div", "corner");
+    c.style.gridRow = "1"; c.style.gridColumn = "1";
+    return c;
+  }
+  function makeDayHead(d){
+    var h = el("div", "day-head" + (d >= 6 ? " weekend" : ""), DAY_NAMES[d-1]);
+    h.style.gridRow = "1"; h.style.gridColumn = String(d + 1);
+    return h;
+  }
+  function makeSlotLabel(s){
+    var l = el("div", "slot-label");
+    l.style.gridRow = String(s + 1); l.style.gridColumn = "1";
+    l.appendChild(el("div", "no", String(s)));
+    l.appendChild(el("div", "tm", timeText(state.slots[s-1])));
+    return l;
+  }
+  function makeCell(d, s){
+    var cell = el("div", "cell");
+    cell.style.gridRow = String(s + 1); cell.style.gridColumn = String(d + 1);
+    cell.dataset.day = String(d);
+    cell.dataset.slot = String(s);
+    cell.addEventListener("click", function(){ openModal(null, d, s); });
+    cell.addEventListener("dragover", function(e){
+      e.preventDefault();
+      cell.classList.add("drag-over");
+    });
+    cell.addEventListener("dragleave", function(){ cell.classList.remove("drag-over"); });
+    cell.addEventListener("drop", function(e){
+      e.preventDefault();
+      cell.classList.remove("drag-over");
+      handleDrop(d, s);
+    });
+    return cell;
+  }
+  function makeCourseBlock(c){
+    var block = el("div", "course");
+    block.style.gridRow = (c.startSlot + 1) + " / " + (c.endSlot + 2);
+    block.style.gridColumn = String(c.day + 1);
+    block.style.background = c.color;
+    block.draggable = true;
+    block.dataset.id = c.id;
+    block.title = buildTooltip(c);
+
+    block.appendChild(el("div", "c-name", c.name));
+    if (c.room) block.appendChild(el("div", "c-meta", "📍 " + c.room));
+    if (c.teacher) block.appendChild(el("div", "c-meta", "👤 " + c.teacher));
+    if (c.note){
+      var noteEl = el("div", "c-note", c.note);
+      noteEl.addEventListener("click", function(e){
+        e.stopPropagation();
+        showNotePop(c, noteEl);
+      });
+      block.appendChild(noteEl);
+    }
+
+    block.addEventListener("click", function(e){ e.stopPropagation(); openModal(c.id); });
+    block.addEventListener("dragstart", function(e){
+      dragId = c.id;
+      block.classList.add("dragging");
+      board.classList.add("dragging");
+      if (e.dataTransfer){ e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); }
+    });
+    block.addEventListener("dragend", function(){
+      block.classList.remove("dragging");
+      board.classList.remove("dragging");
+      dragId = null;
+    });
+    return block;
+  }
+  function buildTooltip(c){
+    var lines = [c.name];
+    lines.push("时间：" + DAY_NAMES[c.day-1] + " 第" + c.startSlot + "-" + c.endSlot + "节");
+    lines.push("周次：第" + c.startWeek + "-" + c.endWeek + "周");
+    if (c.room) lines.push("地点：" + c.room);
+    if (c.teacher) lines.push("教师：" + c.teacher);
+    if (c.note) lines.push("备注：" + c.note);
+    return lines.join("\n");
+  }
+
+  function render(){
+    var n = state.slots.length;
+    board.innerHTML = "";
+    board.style.gridTemplateRows = "44px repeat(" + n + ", minmax(56px, auto))";
+
+    board.appendChild(makeCorner());
+    for (var d = 1; d <= DAYS; d++) board.appendChild(makeDayHead(d));
+    for (var s = 1; s <= n; s++) board.appendChild(makeSlotLabel(s));
+    for (var dd = 1; dd <= DAYS; dd++){
+      for (var ss = 1; ss <= n; ss++) board.appendChild(makeCell(dd, ss));
+    }
+
+    visibleCourses().forEach(function(c){ board.appendChild(makeCourseBlock(c)); });
+
+    if (state.courses.length === 0){
+      var tip = el("div", "empty-tip", "还没有课程，点击「＋ 新增课程」或直接点击空白格子开始吧 ~");
+      tip.style.gridRow = "2 / " + (n + 2);
+      tip.style.gridColumn = "2 / " + (DAYS + 2);
+      tip.style.display = "flex";
+      tip.style.alignItems = "center";
+      tip.style.justifyContent = "center";
+      tip.style.pointerEvents = "none";
+      board.appendChild(tip);
+    }
+
+    markClampedNotes();
+  }
+  function markClampedNotes(){
+    var notes = board.querySelectorAll(".c-note");
+    Array.prototype.forEach.call(notes, function(n){
+      if (n.scrollHeight > n.clientHeight + 1){
+        n.classList.add("clamped");
+        n.title = "点击查看完整备注";
+      } else {
+        n.classList.remove("clamped");
+        n.removeAttribute("title");
+      }
+    });
+  }
+
+  function showNotePop(c, anchor){
+    document.getElementById("npTitle").textContent = c.name;
+    document.getElementById("npSw").style.background = c.color;
+    document.getElementById("npBody").textContent = c.note;
+    notePop.classList.add("show");
+    var r = anchor.getBoundingClientRect();
+    var pw = notePop.offsetWidth, ph = notePop.offsetHeight;
+    var left = clamp(r.left, 8, window.innerWidth - pw - 8);
+    var top = r.bottom + 8;
+    if (top + ph > window.innerHeight - 8) top = r.top - ph - 8;
+    notePop.style.left = left + "px";
+    notePop.style.top = Math.max(8, top) + "px";
+  }
+  function hideNotePop(){ notePop.classList.remove("show"); }
+
+  function findConflict(course){
+    var s1 = course.startSlot, e1 = course.endSlot;
+    for (var i = 0; i < state.courses.length; i++){
+      var c = state.courses[i];
+      if (c.id === course.id) continue;
+      if (c.day !== course.day) continue;
+      var slotOverlap = Math.max(s1, c.startSlot) <= Math.min(e1, c.endSlot);
+      var weekOverlap = Math.max(course.startWeek, c.startWeek) <= Math.min(course.endWeek, c.endWeek);
+      if (slotOverlap && weekOverlap) return c;
+    }
+    return null;
+  }
+
+  function handleDrop(day, slot){
+    if (!dragId) return;
+    var course = state.courses.filter(function(c){ return c.id === dragId; })[0];
+    if (!course) return;
+    var len = course.endSlot - course.startSlot + 1;
+    var max = state.slots.length;
+    var newStart = clamp(slot, 1, max - len + 1);
+    var newEnd = newStart + len - 1;
+    var candidate = Object.assign({}, course, { day: day, startSlot: newStart, endSlot: newEnd });
+
+    var conflict = findConflict(candidate);
+    if (conflict){
+      if (!confirm("该时间段已有课程「" + conflict.name + "」，是否覆盖它？")) return;
+      state.courses = state.courses.filter(function(c){ return c.id !== conflict.id; });
+    }
+    for (var i = 0; i < state.courses.length; i++){
+      if (state.courses[i].id === course.id){
+        state.courses[i] = candidate;
+        break;
+      }
+    }
+    saveState();
+    render();
+  }
+
+  function fillSelect(sel, from, to, fmt){
+    sel.innerHTML = "";
+    for (var i = from; i <= to; i++){
+      var o = el("option");
+      o.value = String(i);
+      o.textContent = fmt ? fmt(i) : String(i);
+      sel.appendChild(o);
+    }
+  }
+  function buildPalette(){
+    paletteEl.innerHTML = "";
+    COLORS.forEach(function(color){
+      var s = el("div", "swatch");
+      s.style.background = color;
+      s.style.color = color;
+      s.dataset.color = color;
+      s.addEventListener("click", function(){ setPickedColor(color); });
+      paletteEl.appendChild(s);
+    });
+    var custom = el("div", "swatch custom");
+    var input = document.createElement("input");
+    input.type = "color";
+    input.value = "#4f8cff";
+    input.addEventListener("input", function(){ setPickedColor(input.value); });
+    custom.appendChild(input);
+    custom.title = "自定义颜色";
+    paletteEl.appendChild(custom);
+  }
+  function setPickedColor(color){
+    pickedColor = color;
+    Array.prototype.forEach.call(paletteEl.querySelectorAll(".swatch"), function(s){
+      s.classList.toggle("active", s.dataset.color === color);
+    });
+  }
+
+  function openModal(id, day, slot){
+    editingId = id || null;
+    var title = document.getElementById("modalTitle");
+    var deleteBtn = document.getElementById("deleteBtn");
+    var inputs = {
+      name: document.getElementById("cName"),
+      teacher: document.getElementById("cTeacher"),
+      room: document.getElementById("cRoom"),
+      day: document.getElementById("cDay"),
+      start: document.getElementById("cStart"),
+      len: document.getElementById("cLen"),
+      startWeek: document.getElementById("cStartWeek"),
+      endWeek: document.getElementById("cEndWeek"),
+      note: document.getElementById("cNote")
+    };
+
+    var n = state.slots.length;
+    fillSelect(inputs.day, 1, DAYS, function(i){ return DAY_NAMES[i-1]; });
+    fillSelect(inputs.start, 1, n, function(i){ return "第 " + i + " 节（" + timeText(state.slots[i-1]) + "）"; });
+    fillSelect(inputs.len, 1, n, function(i){ return i + " 节" + (i > 1 ? "（连堂）" : ""); });
+
+    if (id){
+      var c = state.courses.filter(function(x){ return x.id === id; })[0];
+      if (!c) return;
+      title.textContent = "编辑课程";
+      deleteBtn.style.display = "";
+      inputs.name.value = c.name;
+      inputs.teacher.value = c.teacher;
+      inputs.room.value = c.room;
+      inputs.day.value = String(c.day);
+      inputs.start.value = String(c.startSlot);
+      inputs.len.value = String(c.endSlot - c.startSlot + 1);
+      inputs.startWeek.value = c.startWeek;
+      inputs.endWeek.value = c.endWeek;
+      inputs.note.value = c.note;
+      setPickedColor(c.color);
+    } else {
+      title.textContent = "新增课程";
+      deleteBtn.style.display = "none";
+      inputs.name.value = "";
+      inputs.teacher.value = "";
+      inputs.room.value = "";
+      inputs.day.value = String(clamp(day || 1, 1, DAYS));
+      inputs.start.value = String(clamp(slot || 1, 1, n));
+      inputs.len.value = "1";
+      inputs.startWeek.value = state.currentWeek > 0 ? state.currentWeek : 1;
+      inputs.endWeek.value = state.totalWeeks;
+      inputs.note.value = "";
+      setPickedColor(COLORS[state.courses.length % COLORS.length]);
+    }
+    modalMask.classList.add("show");
+    setTimeout(function(){ inputs.name.focus(); }, 60);
+  }
+  function closeModal(){ modalMask.classList.remove("show"); editingId = null; }
+
+  function saveFromModal(){
+    var name = document.getElementById("cName").value.trim();
+    if (!name){ alert("请填写课程名称"); document.getElementById("cName").focus(); return; }
+
+    var n = state.slots.length;
+    var day = parseInt(document.getElementById("cDay").value,10);
+    var start = parseInt(document.getElementById("cStart").value,10);
+    var len = parseInt(document.getElementById("cLen").value,10);
+    var startWeek = parseInt(document.getElementById("cStartWeek").value,10) || 1;
+    var endWeek = parseInt(document.getElementById("cEndWeek").value,10) || startWeek;
+    if (start + len - 1 > n){
+      alert("课程超出当天节次范围，请调整开始节次或持续节数。");
+      return;
+    }
+    if (startWeek > endWeek){
+      var t = startWeek; startWeek = endWeek; endWeek = t;
+    }
+    startWeek = clamp(startWeek, 1, state.totalWeeks);
+    endWeek = clamp(endWeek, 1, state.totalWeeks);
+
+    var course = {
+      id: editingId || uid(),
+      name: name,
+      teacher: document.getElementById("cTeacher").value.trim(),
+      room: document.getElementById("cRoom").value.trim(),
+      day: day,
+      startSlot: start,
+      endSlot: start + len - 1,
+      startWeek: startWeek,
+      endWeek: endWeek,
+      color: pickedColor,
+      note: document.getElementById("cNote").value.trim()
+    };
+
+    var conflict = findConflict(course);
+    if (conflict){
+      if (!confirm("该时间段已有课程「" + conflict.name + "」，是否覆盖它？")) return;
+      state.courses = state.courses.filter(function(c){ return c.id !== conflict.id; });
+    }
+
+    if (editingId){
+      state.courses = state.courses.map(function(c){ return c.id === editingId ? course : c; });
+    } else {
+      state.courses.push(course);
+    }
+    saveState();
+    render();
+    closeModal();
+  }
+
+  function deleteCourse(){
+    if (!editingId) return;
+    var c = state.courses.filter(function(x){ return x.id === editingId; })[0];
+    if (!c) return;
+    if (!confirm("确定删除课程「" + c.name + "」吗？")) return;
+    state.courses = state.courses.filter(function(x){ return x.id !== editingId; });
+    saveState();
+    render();
+    closeModal();
+  }
+
+  function openSlotEditor(){
+    tempSlots = state.slots.map(function(s){ return { start: s.start, end: s.end }; });
+    deletedSlotIdx = [];
+    slotOldLen = state.slots.length;
+    renderSlotList();
+    slotMask.classList.add("show");
+  }
+  function closeSlotEditor(){ slotMask.classList.remove("show"); }
+
+  function slotMapToOrig(currentIndex){
+    var count = 0;
+    for (var k = 1; k <= slotOldLen; k++){
+      if (deletedSlotIdx.indexOf(k) !== -1) continue;
+      if (count === currentIndex) return k;
+      count++;
+    }
+    return 0;
+  }
+  function renderSlotList(){
+    var list = document.getElementById("slotList");
+    list.innerHTML = "";
+    tempSlots.forEach(function(s, i){
+      var row = el("div", "slot-row");
+      row.appendChild(el("span", "idx", String(i + 1)));
+
+      var st = document.createElement("input");
+      st.type = "time"; st.value = s.start;
+      var en = document.createElement("input");
+      en.type = "time"; en.value = s.end;
+
+      st.addEventListener("input", function(){ tempSlots[i].start = st.value; });
+      en.addEventListener("input", function(){ tempSlots[i].end = en.value; });
+
+      var del = el("button", "btn danger del", "删除");
+      del.addEventListener("click", function(){
+        if (tempSlots.length <= 1){ alert("至少保留一个小节。"); return; }
+        var origIdx = slotMapToOrig(i);
+        if (origIdx) deletedSlotIdx.push(origIdx);
+        tempSlots.splice(i, 1);
+        renderSlotList();
+      });
+
+      row.appendChild(st);
+      row.appendChild(el("span", "sep", "~"));
+      row.appendChild(en);
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+  }
+  function addSlot(){
+    var last = tempSlots[tempSlots.length - 1];
+    var startMin = last ? toMin(last.end) + 10 : 8 * 60;
+    var endMin = startMin + 45;
+    tempSlots.push({ start: toHHmm(startMin), end: toHHmm(endMin) });
+    renderSlotList();
+    var list = document.getElementById("slotList");
+    if (list.lastChild) list.lastChild.scrollIntoView({ block: "nearest" });
+  }
+  function restoreDefaultSlots(){
+    if (!confirm("将把节次重置为学校的默认时间划分（13 节），是否继续？")) return;
+    tempSlots = defaultSlots();
+    deletedSlotIdx = [];
+    slotOldLen = tempSlots.length;
+    renderSlotList();
+  }
+  function saveSlots(){
+    for (var i = 0; i < tempSlots.length; i++){
+      if (!isTime(tempSlots[i].start) || !isTime(tempSlots[i].end)){
+        alert("第 " + (i + 1) + " 节的时间格式不正确。");
+        return;
+      }
+      if (toMin(tempSlots[i].start) >= toMin(tempSlots[i].end)){
+        alert("第 " + (i + 1) + " 节的结束时间必须晚于开始时间。");
+        return;
+      }
+    }
+    state.slots = tempSlots.map(function(s){ return { start: s.start, end: s.end }; });
+
+    if (deletedSlotIdx.length){
+      var kept = [];
+      for (var k = 1; k <= slotOldLen; k++){
+        if (deletedSlotIdx.indexOf(k) === -1) kept.push(k);
+      }
+      var remapped = [];
+      state.courses.forEach(function(c){
+        var idxs = [];
+        for (var s = c.startSlot; s <= c.endSlot; s++){
+          if (kept.indexOf(s) !== -1) idxs.push(kept.indexOf(s) + 1);
+        }
+        if (!idxs.length) return;
+        c.startSlot = Math.min.apply(null, idxs);
+        c.endSlot = Math.max.apply(null, idxs);
+        remapped.push(c);
+      });
+      state.courses = remapped;
+    }
+    saveState();
+    closeSlotEditor();
+    render();
+  }
+
+  function download(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function exportJSON(){
+    var data = JSON.stringify({
+      totalWeeks: state.totalWeeks,
+      currentWeek: state.currentWeek,
+      slots: state.slots,
+      courses: state.courses
+    }, null, 2);
+    download(new Blob([data], {type:"application/json"}), "课表备份.json");
+  }
+
+  function importJSON(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(reader.result);
+        var arr = Array.isArray(data) ? data : data.courses;
+        if (!Array.isArray(arr)) throw new Error("格式不正确");
+        if (!confirm("导入将覆盖当前课表，是否继续？")) return;
+        if (data && Array.isArray(data.slots) && data.slots.length){
+          var slots = data.slots.map(normalizeSlot).filter(Boolean);
+          if (slots.length) state.slots = slots;
+        }
+        state.courses = arr.map(normalizeCourse).filter(Boolean);
+        if (data && !Array.isArray(data)){
+          state.totalWeeks = clamp(parseInt(data.totalWeeks,10) || state.totalWeeks, 1, 60);
+          state.currentWeek = clamp(parseInt(data.currentWeek,10) || 1, 1, state.totalWeeks);
+        }
+        saveState();
+        renderWeekSelect();
+        render();
+        alert("导入成功，共 " + state.courses.length + " 门课程。");
+      }catch(e){
+        alert("导入失败：文件格式不正确。\n" + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function textColorOn(hex){
+    var c = hex.replace("#","");
+    var r = parseInt(c.slice(0,2),16), g = parseInt(c.slice(2,4),16), b = parseInt(c.slice(4,6),16);
+    var lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+    return lum > 0.62 ? "#1f2d3d" : "#ffffff";
+  }
+  function roundRect(ctx, x, y, w, h, r){
+    if (ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+  function wrapText(ctx, text, maxW){
+    var lines = [], cur = "";
+    for (var i = 0; i < text.length; i++){
+      var ch = text.charAt(i);
+      if (ch === "\n"){ lines.push(cur); cur = ""; continue; }
+      var test = cur + ch;
+      if (ctx.measureText(test).width > maxW && cur){ lines.push(cur); cur = ch; }
+      else cur = test;
+    }
+    lines.push(cur);
+    return lines;
+  }
+  function exportImage(){
+    var n = state.slots.length;
+    var PAD = 24, TIME_W = 76, HEAD_H = 44, ROW_H = 58, DAY_W = 130, TITLE_H = 44;
+    var W = PAD*2 + TIME_W + DAY_W*DAYS;
+    var H = PAD*2 + TITLE_H + HEAD_H + ROW_H*n;
+    var scale = 2;
+    var canvas = document.createElement("canvas");
+    canvas.width = W*scale; canvas.height = H*scale;
+    var ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+
+    var dark = state.theme === "dark";
+    ctx.fillStyle = dark ? "#1b1e27" : "#ffffff";
+    ctx.fillRect(0,0,W,H);
+
+    var ox = PAD, oy = PAD;
+    ctx.fillStyle = dark ? "#e7eaf0" : "#1f2d3d";
+    ctx.font = "bold 20px -apple-system,'Microsoft YaHei',sans-serif";
+    ctx.textBaseline = "middle";
+    var weekText = state.currentWeek > 0 ? ("第 " + state.currentWeek + " 周") : "全部周次";
+    ctx.fillText("我的课表 · " + weekText, ox, oy + TITLE_H/2);
+
+    var gridY = oy + TITLE_H;
+    var headerBg = dark ? "#20242f" : "#f6f9fd";
+    var lineCol = dark ? "#2a2e3b" : "#e9edf3";
+    var mutedCol = dark ? "#8b93a5" : "#7c8aa0";
+
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(ox, gridY, TIME_W + DAY_W*DAYS, HEAD_H);
+
+    ctx.font = "bold 14px -apple-system,'Microsoft YaHei',sans-serif";
+    ctx.textAlign = "center";
+    for (var d = 1; d <= DAYS; d++){
+      var cx = ox + TIME_W + (d-1)*DAY_W + DAY_W/2;
+      ctx.fillStyle = (d >= 6) ? "#4f8cff" : (dark ? "#e7eaf0" : "#1f2d3d");
+      ctx.fillText(DAY_NAMES[d-1], cx, gridY + HEAD_H/2);
+    }
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = headerBg;
+    ctx.fillRect(ox, gridY + HEAD_H, TIME_W, ROW_H*n);
+
+    for (var s = 0; s < n; s++){
+      var rowY = gridY + HEAD_H + s*ROW_H;
+      var midY = rowY + ROW_H/2;
+      ctx.fillStyle = dark ? "#e7eaf0" : "#1f2d3d";
+      ctx.font = "bold 13px -apple-system,'Microsoft YaHei',sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(s+1), ox + TIME_W/2, midY - 8);
+      ctx.fillStyle = mutedCol;
+      ctx.font = "9px -apple-system,'Microsoft YaHei',sans-serif";
+      ctx.fillText(timeText(state.slots[s]), ox + TIME_W/2, midY + 9);
+      ctx.textAlign = "left";
+    }
+
+    ctx.strokeStyle = lineCol;
+    ctx.lineWidth = 1;
+    for (var i = 0; i <= n; i++){
+      var y = gridY + HEAD_H + i*ROW_H + 0.5;
+      ctx.beginPath(); ctx.moveTo(ox, y); ctx.lineTo(ox + TIME_W + DAY_W*DAYS, y); ctx.stroke();
+    }
+    for (var j = 0; j <= DAYS; j++){
+      var x = ox + TIME_W + j*DAY_W + 0.5;
+      ctx.beginPath(); ctx.moveTo(x, gridY); ctx.lineTo(x, gridY + HEAD_H + ROW_H*n); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(ox + 0.5, gridY); ctx.lineTo(ox + 0.5, gridY + HEAD_H + ROW_H*n); ctx.stroke();
+
+    visibleCourses().forEach(function(c){
+      var bx = ox + TIME_W + (c.day-1)*DAY_W + 4;
+      var by = gridY + HEAD_H + (c.startSlot-1)*ROW_H + 4;
+      var bw = DAY_W - 8;
+      var bh = (c.endSlot - c.startSlot + 1)*ROW_H - 8;
+
+      ctx.fillStyle = c.color;
+      roundRect(ctx, bx, by, bw, bh, 10);
+      ctx.fill();
+
+      var tc = textColorOn(c.color);
+      ctx.fillStyle = tc;
+      ctx.textAlign = "left";
+      var ty = by + 18;
+      ctx.font = "bold 13px -apple-system,'Microsoft YaHei',sans-serif";
+      var name = c.name;
+      if (ctx.measureText(name).width > bw - 20){
+        while (name.length > 1 && ctx.measureText(name + "…").width > bw - 20) name = name.slice(0, -1);
+        name += "…";
+      }
+      ctx.fillText(name, bx + 10, ty);
+
+      ctx.globalAlpha = 0.92;
+      ctx.font = "10.5px -apple-system,'Microsoft YaHei',sans-serif";
+      var meta = [];
+      if (c.room) meta.push(c.room);
+      if (c.teacher) meta.push(c.teacher);
+      var metaBottom = ty;
+      if (bh >= 70){
+        meta.forEach(function(m, idx){
+          ctx.fillText(m, bx + 10, ty + 18 + idx*15);
+          metaBottom = ty + 18 + idx*15;
+        });
+      } else if (meta.length){
+        ctx.fillText(meta.join(" "), bx + 10, ty + 16);
+        metaBottom = ty + 16;
+      }
+
+      if (c.note){
+        ctx.globalAlpha = 0.95;
+        ctx.font = "10px -apple-system,'Microsoft YaHei',sans-serif";
+        var noteTop = metaBottom + 15;
+        var avail = (by + bh - 8) - noteTop;
+        var maxLines = Math.floor(avail / 13) + 1;
+        if (maxLines >= 1){
+          var lines = wrapText(ctx, c.note, bw - 20);
+          for (var li = 0; li < lines.length && li < maxLines; li++){
+            var txt = lines[li];
+            if (li === maxLines - 1 && lines.length > maxLines) txt = txt.slice(0, -1) + "…";
+            ctx.fillText(txt, bx + 10, noteTop + li*13);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    canvas.toBlob(function(blob){
+      var weekName = state.currentWeek > 0 ? ("第" + state.currentWeek + "周") : "全部";
+      download(blob, "课表-" + weekName + ".png");
+    });
+  }
+
+  function applyTipCollapsed(collapsed){
+    document.getElementById("tipBox").classList.toggle("hidden", collapsed);
+    document.getElementById("tipFab").classList.toggle("show", collapsed);
+  }
+  function initTip(){
+    var collapsed = false;
+    try{ collapsed = localStorage.getItem("my-schedule-tip-collapsed") === "1"; }catch(e){}
+    applyTipCollapsed(collapsed);
+    document.getElementById("tipToggle").addEventListener("click", function(){
+      applyTipCollapsed(true);
+      try{ localStorage.setItem("my-schedule-tip-collapsed", "1"); }catch(e){}
+    });
+    document.getElementById("tipFab").addEventListener("click", function(){
+      applyTipCollapsed(false);
+      try{ localStorage.setItem("my-schedule-tip-collapsed", "0"); }catch(e){}
+    });
+  }
+  function bindEvents(){
+    document.getElementById("addBtn").addEventListener("click", function(){ openModal(null, 1, 1); });
+    document.getElementById("prevWeek").addEventListener("click", function(){
+      if (state.currentWeek === 0){ state.currentWeek = state.totalWeeks; }
+      else { state.currentWeek = state.currentWeek > 1 ? state.currentWeek - 1 : state.totalWeeks; }
+      saveState(); renderWeekSelect(); render();
+    });
+    document.getElementById("nextWeek").addEventListener("click", function(){
+      if (state.currentWeek === 0){ state.currentWeek = 1; }
+      else { state.currentWeek = state.currentWeek < state.totalWeeks ? state.currentWeek + 1 : 1; }
+      saveState(); renderWeekSelect(); render();
+    });
+    document.getElementById("weekSelect").addEventListener("change", function(e){
+      state.currentWeek = parseInt(e.target.value,10) || 0;
+      saveState(); render();
+    });
+    document.getElementById("themeBtn").addEventListener("click", function(){
+      state.theme = state.theme === "dark" ? "light" : "dark";
+      applyTheme(); saveState();
+    });
+    document.getElementById("saveBtn").addEventListener("click", saveFromModal);
+    document.getElementById("deleteBtn").addEventListener("click", deleteCourse);
+    document.getElementById("cancelBtn").addEventListener("click", closeModal);
+    modalMask.addEventListener("click", function(e){ if (e.target === modalMask) closeModal(); });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape"){
+        if (notePop.classList.contains("show")) hideNotePop();
+        if (modalMask.classList.contains("show")) closeModal();
+        if (slotMask.classList.contains("show")) closeSlotEditor();
+      }
+      if (e.key === "Enter" && modalMask.classList.contains("show") && e.target.tagName !== "TEXTAREA"){
+        e.preventDefault(); saveFromModal();
+      }
+    });
+
+    notePop.addEventListener("click", function(e){ e.stopPropagation(); });
+    document.addEventListener("click", function(){ hideNotePop(); });
+    window.addEventListener("resize", function(){ hideNotePop(); markClampedNotes(); });
+
+    document.getElementById("slotBtn").addEventListener("click", openSlotEditor);
+    document.getElementById("addSlotBtn").addEventListener("click", addSlot);
+    document.getElementById("resetSlotBtn").addEventListener("click", restoreDefaultSlots);
+    document.getElementById("slotCancelBtn").addEventListener("click", closeSlotEditor);
+    document.getElementById("slotSaveBtn").addEventListener("click", saveSlots);
+    slotMask.addEventListener("click", function(e){ if (e.target === slotMask) closeSlotEditor(); });
+
+    var dd = document.getElementById("dataDropdown");
+    document.getElementById("dataBtn").addEventListener("click", function(e){
+      e.stopPropagation();
+      dd.classList.toggle("open");
+    });
+    document.addEventListener("click", function(){ dd.classList.remove("open"); });
+    document.getElementById("exportBtn").addEventListener("click", function(){ exportJSON(); dd.classList.remove("open"); });
+    document.getElementById("importBtn").addEventListener("click", function(){
+      dd.classList.remove("open");
+      document.getElementById("importFile").click();
+    });
+    document.getElementById("importFile").addEventListener("change", function(e){
+      var f = e.target.files[0];
+      if (f) importJSON(f);
+      e.target.value = "";
+    });
+    document.getElementById("imageBtn").addEventListener("click", exportImage);
+    document.getElementById("printBtn").addEventListener("click", function(){ window.print(); });
+  }
+
+  function init(){
+    loadState();
+    applyTheme();
+    buildPalette();
+    renderWeekSelect();
+    bindEvents();
+    initTip();
+    render();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>
